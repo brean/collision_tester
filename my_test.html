@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Arm</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+        .joint {
+            fill: red;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="robotArmCanvas" width="800" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById('robotArmCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const padding = 50; // Padding from the edges
+        const baseX = padding; // Base position for the arm
+        const baseY = canvas.height - padding; // Base position for the arm
+
+        class Arm {
+            constructor(x, y, length, angle, parent = null) {
+                this.x = x;
+                this.y = y;
+                this.length = length;
+                this.angle = angle;
+                this.parent = parent;
+                this.children = [];
+                if (parent) {
+                    parent.addChild(this);
+                }
+            }
+
+            addChild(child) {
+                this.children.push(child);
+            }
+
+            getEndPosition() {
+                const endX = this.x + this.length * Math.cos(this.angle);
+                const endY = this.y - this.length * Math.sin(this.angle);
+                return { x: endX, y: endY };
+            }
+
+            draw() {
+                const endPos = this.getEndPosition();
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(endPos.x, endPos.y);
+                ctx.stroke();
+
+                // Draw joint
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 10, 0, Math.PI * 2);
+                ctx.fillStyle = 'red';
+                ctx.fill();
+
+                // Draw child arms
+                for (const child of this.children) {
+                    child.draw();
+                }
+            }
+
+            update() {
+                const endPos = this.getEndPosition();
+                for (const child of this.children) {
+                    child.x = endPos.x;
+                    child.y = endPos.y;
+                    child.update();
+                }
+            }
+
+            isInsideJoint(mousePos) {
+                const dx = mousePos.x - this.x;
+                const dy = mousePos.y - this.y;
+                return (dx * dx + dy * dy) <= (10 * 10);
+            }
+        }
+
+        const arm1 = new Arm(baseX, baseY, 100, Math.PI / 4);
+        const arm2 = new Arm(0, 0, 100, Math.PI / 4, arm1);
+
+        let draggingJoint = null;
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            arm1.draw();
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const mousePos = getMousePos(canvas, e);
+            if (arm1.isInsideJoint(mousePos)) {
+                draggingJoint = arm1;
+            } else if (arm2.isInsideJoint(mousePos)) {
+                draggingJoint = arm2;
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            draggingJoint = null;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (draggingJoint) {
+                const mousePos = getMousePos(canvas, e);
+                if (draggingJoint === arm1) {
+                    // Prevent moving the base joint
+                    return;
+                } else if (draggingJoint === arm2) {
+                    const dx = mousePos.x - arm1.x;
+                    const dy = mousePos.y - arm1.y;
+                    draggingJoint.angle = Math.atan2(-dy, dx) - arm1.angle; // Update angle based on mouse position
+                }
+                arm1.update();
+                draw();
+            }
+        });
+
+        function getMousePos(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: evt.clientX - rect.left,
+                y: evt.clientY - rect.top
+            };
+        }
+
+        draw();
+    </script>
+</body>
+</html>
