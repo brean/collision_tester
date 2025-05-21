@@ -158,8 +158,15 @@
 </script>
 upper arm angle: <input type="text" bind:value={upperarm.angle} /><br />
 forearm angle: <input type="text" bind:value={forearm.angle} /><br />
-<canvas width="500" height="500" bind:this={armCanvas}></canvas>
-<canvas width="500" height="500" bind:this={cSpaceCanvas}></canvas>
+<div style="display: inline-block; vertical-align: top; margin-right: 20px;">
+  Robot space<br />
+  <canvas width="500" height="500" bind:this={armCanvas}></canvas>
+</div>
+<div style="display: inline-block; vertical-align: top;">
+  configuration space<br />
+  <canvas width="500" height="500" bind:this={cSpaceCanvas}></canvas>
+</div>
+
 
 <style>
   canvas {
