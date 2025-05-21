@@ -10,6 +10,7 @@
   let draggingArm: Arm | undefined;
 
   interface ArmParameter {
+    color?: string
     x?: number
     y?: number
     child?: Arm
@@ -18,13 +19,15 @@
   }
 
   class Arm {
-    x: number = 0.0;
-    y: number = 0.0;
+    color: string;
+    x: number;
+    y: number;
     length: number;
     angle: number;
     child?: Arm;
 
     constructor(param: ArmParameter) {
+      this.color = param.color || 'red';
       this.x = param.x || 0.0;
       this.y = param.y || 0.0;
       this.child = param.child;
@@ -54,7 +57,7 @@
         (this.x + endPos.x) / 2,
         (this.y + endPos.y) / 2,
         10, 0, Math.PI * 2);
-      armCtx.fillStyle = 'red';
+      armCtx.fillStyle = this.color;
       armCtx.fill();
 
       // Draw child arms
@@ -81,16 +84,34 @@
   // let forearm = { x: jointLower.x + armLength2 * Math.cos(angle1 + angle2), y: joint2.y - armLength2 * Math.sin(angle1 + angle2) };
   
   let upperarm = new Arm({});
-  let forearm = new Arm({child: upperarm});
+  let forearm = new Arm({child: upperarm, color: 'blue'});
 
   function draw() {
     armCtx.clearRect(0, 0, armCanvas.width, armCanvas.height);
     forearm.draw(padding, armCanvas.height - padding)
+
+    cSpaceCtx.clearRect(0, 0, cSpaceCanvas.width, cSpaceCanvas.height);
+    cSpaceCtx.beginPath();
+    cSpaceCtx.arc(
+      ((forearm.angle + Math.PI) * cSpaceCanvas.width) / (Math.PI * 2),
+      ((upperarm.angle + Math.PI) * cSpaceCanvas.height) / (Math.PI * 2),
+        10, 0, Math.PI * 2);
+    cSpaceCtx.fillStyle = 'black';
+    cSpaceCtx.fill();
   }
 
   function init() {
+    if (!cSpaceCanvas) {
+      return
+    }
     if (!armCanvas) {
       return
+    }
+    if (!cSpaceCtx) {
+      cSpaceCtx = cSpaceCanvas.getContext('2d');
+      if (!cSpaceCtx) {
+        return
+      }
     }
     if (!armCtx) {
       armCtx = armCanvas.getContext('2d');
