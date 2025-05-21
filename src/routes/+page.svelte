@@ -1,5 +1,4 @@
 <script lang="ts">
-  const padding = 250;
   const arm_length = 100;
 
   let armCanvas: HTMLCanvasElement;
