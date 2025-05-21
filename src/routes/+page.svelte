@@ -27,7 +27,7 @@
     child?: Arm;
 
     constructor(param: ArmParameter) {
-      this.color = param.color || 'red';
+      this.color = param.color || 'green';
       this.x = param.x || 0.0;
       this.y = param.y || 0.0;
       this.child = param.child;
@@ -134,6 +134,9 @@
 
   function draw() {
     armCtx.clearRect(0, 0, armCanvas.width, armCanvas.height);
+    obstacles.forEach((ob: Obstacle) => {
+      ob.draw(armCanvas.width / 2, armCanvas.height / 2)
+    })
     forearm.draw(armCanvas.width / 2, armCanvas.height / 2)
 
     cSpaceCtx.clearRect(0, 0, cSpaceCanvas.width, cSpaceCanvas.height);
@@ -145,9 +148,6 @@
     cSpaceCtx.fillStyle = 'black';
     cSpaceCtx.fill();
 
-    obstacles.forEach((ob: Obstacle) => {
-      ob.draw(armCanvas.width / 2, armCanvas.height / 2)
-    })
   }
 
   function init() {
@@ -215,8 +215,10 @@
   <canvas width="500" height="500" bind:this={cSpaceCanvas}></canvas>
 </div>
 <br />
-upper arm angle: <input type="text" bind:value={upperarm.angle} /><br />
-forearm angle: <input type="text" bind:value={forearm.angle} /><br />
+upper arm angle: <input type="range" min={-Math.PI} max={Math.PI} step={0.01} bind:value={upperarm.angle} />
+<button onclick={() => {upperarm.angle = 0}}>0</button> {Math.round(upperarm.angle * 1800 / Math.PI) / 10}<br />
+forearm angle: <input type="range" min={-Math.PI} max={Math.PI} step={0.01} bind:value={forearm.angle} />
+<button onclick={() => {forearm.angle = 0}}>0</button> {Math.round(forearm.angle * 1800 / Math.PI) / 10}<br />
 
 
 <style>
