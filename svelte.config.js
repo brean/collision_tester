@@ -13,7 +13,7 @@ const config = {
 			fallback: 'index.html'
 		}),
 		paths: {
-			base: '/smui-gamepad-components',
+			base: '/collision_tester',
 			relative: true
 		}
 		
