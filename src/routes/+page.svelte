@@ -51,13 +51,20 @@
       armCtx.lineTo(endPos.x, endPos.y);
       armCtx.stroke();
 
-      // Draw joint
+      // Draw handle to move
       armCtx.beginPath();
       armCtx.arc(
         (this.x + endPos.x) / 2,
         (this.y + endPos.y) / 2,
         10, 0, Math.PI * 2);
       armCtx.fillStyle = this.color;
+      armCtx.fill();
+
+      // draw endeffector
+      armCtx.beginPath();
+      armCtx.arc(endPos.x, endPos.y, 5, 0, Math.PI * 2);
+      armCtx.fillStyle = 'black';
+      armCtx.strokStyle = 'black'
       armCtx.fill();
 
       // Draw child arms
@@ -80,15 +87,54 @@
       return (dx * dx + dy * dy) <= (10 * 10);
     }
   }
-  // let upperarm = { x: padding + angleLower * Math.cos(angle1), y: joint1.y - armLength1 * Math.sin(angle1) };
-  // let forearm = { x: jointLower.x + armLength2 * Math.cos(angle1 + angle2), y: joint2.y - armLength2 * Math.sin(angle1 + angle2) };
-  
-  let upperarm = new Arm({});
+
+  class Obstacle {
+    vertices: { x: number, y: number }[];
+
+    constructor(vertices: { x: number, y: number }[]) {
+      this.vertices = vertices;
+    }
+
+    draw(centerX: number, centerY: number) {
+      armCtx.fillStyle = 'gray';
+      armCtx.beginPath();
+      armCtx.moveTo(this.vertices[0].x + centerX, this.vertices[0].y + centerY);
+      for (let i = 1; i < this.vertices.length; i++) {
+        armCtx.lineTo(this.vertices[i].x + centerX, this.vertices[i].y + centerY);
+      }
+      armCtx.closePath();
+      armCtx.fill();
+    }
+
+    isColliding(endPos: { x: number, y: number }) {
+      // Simple point-in-polygon test
+      let collision = false;
+      for (let i = 0, j = this.vertices.length - 1; i < this.vertices.length; j = i++) {
+        const xi = this.vertices[i].x, yi = this.vertices[i].y;
+        const xj = this.vertices[j].x, yj = this.vertices[j].y;
+
+        const intersect = ((yi > endPos.y) !== (yj > endPos.y)) &&
+          (endPos.x < (xj - xi) * (endPos.y - yi) / (yj - yi) + xi);
+        if (intersect) collision = !collision;
+      }
+      return collision;
+    }
+  }
+
+
+  let upperarm = new Arm({length: arm_length * 0.8});
   let forearm = new Arm({child: upperarm, color: 'blue'});
+  let obstacles = [
+    new Obstacle([
+      {x: 20, y: 20},
+      {x: 80, y: 50},
+      {x: 50, y: 80}
+    ])
+  ]
 
   function draw() {
     armCtx.clearRect(0, 0, armCanvas.width, armCanvas.height);
-    forearm.draw(padding, armCanvas.height - padding)
+    forearm.draw(armCanvas.width / 2, armCanvas.height / 2)
 
     cSpaceCtx.clearRect(0, 0, cSpaceCanvas.width, cSpaceCanvas.height);
     cSpaceCtx.beginPath();
@@ -98,6 +144,10 @@
         10, 0, Math.PI * 2);
     cSpaceCtx.fillStyle = 'black';
     cSpaceCtx.fill();
+
+    obstacles.forEach((ob: Obstacle) => {
+      ob.draw(armCanvas.width / 2, armCanvas.height / 2)
+    })
   }
 
   function init() {
@@ -156,8 +206,6 @@
 
   $effect(init);
 </script>
-upper arm angle: <input type="text" bind:value={upperarm.angle} /><br />
-forearm angle: <input type="text" bind:value={forearm.angle} /><br />
 <div style="display: inline-block; vertical-align: top; margin-right: 20px;">
   Robot space<br />
   <canvas width="500" height="500" bind:this={armCanvas}></canvas>
@@ -166,6 +214,9 @@ forearm angle: <input type="text" bind:value={forearm.angle} /><br />
   configuration space<br />
   <canvas width="500" height="500" bind:this={cSpaceCanvas}></canvas>
 </div>
+<br />
+upper arm angle: <input type="text" bind:value={upperarm.angle} /><br />
+forearm angle: <input type="text" bind:value={forearm.angle} /><br />
 
 
 <style>
