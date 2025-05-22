@@ -1,4 +1,7 @@
+## Collision Tester
+UI to visualize Configuration Space (c-space) of a 2DOF robot.
 
+![collision_tester](https://github.com/user-attachments/assets/36e65eb4-9a9d-4db0-bb10-a156a9f56362)
 
 ## Developing
 
