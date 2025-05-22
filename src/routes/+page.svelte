@@ -1,10 +1,8 @@
 <script lang="ts">
-  import { Arm } from "../Arm.svelte.ts";
+  import { Arm } from "../Arm.svelte";
   import type Point from "../interfaces/Point";
   import Obstacle from "../Obstacle";
-  import { getPointerPos, segmentsIntersect } from "../utils";
-
-
+  import { getPointerPos } from "../utils";
 
   let armCanvas: HTMLCanvasElement;
   let armCtx: CanvasRenderingContext2D | null;
@@ -17,6 +15,15 @@
   let cSpaceCalculating = $state(true);
   let cSpaceNeedRedraw = true;
   let pointerListener = false;
+
+  let addObstacleMode = false;
+
+  let draggingObstacleVertexInfo = $state<{ 
+    obstacleIndex: number, 
+    vertexIndex: number, 
+    offsetX: number, // Offset from pointer to vertex's top-left world coordinate
+    offsetY: number 
+  } | undefined>(undefined);
 
   let upperarm = new Arm({length: 80})
   let forearm: Arm = new Arm({child: upperarm, color: 'blue'})
@@ -49,16 +56,29 @@
     cSpaceCtx.stroke();
   }
 
-  function draw() {
+  function drawRobotSpace() {
     if (!armCtx) {
       return
     }
     armCtx.clearRect(0, 0, armCanvas.width, armCanvas.height);
+
+    // obstacles
+    const canvasCenterX = armCanvas.width / 2;
+    const canvasCenterY = armCanvas.height / 2;
     obstacles.forEach((ob: Obstacle) => {
       if (!armCtx) return;
-      ob.draw(armCanvas.width / 2, armCanvas.height / 2, armCtx)
+      ob.draw(armCanvas.width / 2, armCanvas.height / 2, armCtx);
+      if (!addObstacleMode) {
+        ob.drawHandles(canvasCenterX, canvasCenterY, armCtx);
+      }
     })
+
+    // robot itself
     forearm.draw(armCanvas.width / 2, armCanvas.height / 2, armCtx)
+  }
+
+  function draw() {
+    drawRobotSpace()
 
     drawCSpace();
 
@@ -75,14 +95,16 @@
     cSpaceImage = cSpaceCtx.createImageData(cSpaceWidth, cSpaceHeight);
     const data = cSpaceImage.data;
 
-    const armBaseX = armCanvas.width / 2;
-    const armBaseY = armCanvas.height / 2;
+    const armBase: Point = {
+      x: armCanvas.width / 2,
+      y: armCanvas.height / 2
+    };
     
     const len_forearm = forearm.length;
     const len_upperarm = upperarm.length;
 
-    const obstacleRefX = armCanvas.width / 2; // Obstacles vertices are relative to this
-    const obstacleRefY = armCanvas.height / 2;
+    // Obstacles vertices are relative to the arm base
+    const obstacleRef: Point = armBase;
 
     for (let cy = 0; cy < cSpaceHeight; cy++) {
       const angle_upperarm = (cy / cSpaceHeight) * (2 * Math.PI) - Math.PI;
@@ -90,13 +112,13 @@
       for (let cx = 0; cx < cSpaceWidth; cx++) {
         const angle_forearm = (cx / cSpaceWidth) * (2 * Math.PI) - Math.PI;
         
-        const forearm_p1 = { x: armBaseX, y: armBaseY };
-        const forearm_p2 = {
-          x: armBaseX + len_forearm * Math.cos(angle_forearm),
-          y: armBaseY - len_forearm * Math.sin(angle_forearm)
+        const forearm_p1: Point = armBase;
+        const forearm_p2: Point = {
+          x: armBase.x + len_forearm * Math.cos(angle_forearm),
+          y: armBase.y - len_forearm * Math.sin(angle_forearm)
         };
-        const upperarm_p1 = forearm_p2;
-        const upperarm_p2 = {
+        const upperarm_p1: Point = forearm_p2;
+        const upperarm_p2: Point = {
           x: upperarm_p1.x + len_upperarm * Math.cos(angle_upperarm),
           y: upperarm_p1.y - len_upperarm * Math.sin(angle_upperarm)
         };
@@ -105,9 +127,9 @@
         for (const obs of obstacles) { // Read reactive `obstacles` state
           if (
             obs.collidesWithSegment(
-              forearm_p1, forearm_p2, obstacleRefX, obstacleRefY) ||
+              forearm_p1, forearm_p2, obstacleRef) ||
             obs.collidesWithSegment(
-              upperarm_p1, upperarm_p2, obstacleRefX, obstacleRefY)) {
+              upperarm_p1, upperarm_p2, obstacleRef)) {
             collision = true;
             break;
           }
@@ -146,8 +168,35 @@
     requestCSpaceUpdate();
 
     if (!pointerListener) {
+      const armBase: Point = {
+        x: armCanvas.width / 2,
+        y: armCanvas.height / 2
+      };
+
       armCanvas.addEventListener('pointerdown', (e: PointerEvent) => {
         const pointerPos = getPointerPos(armCanvas, e);
+
+        // Click on vertex of obstacle, update draggingObstacleVertexInfo
+        for (let i = 0; i < obstacles.length; i++) {
+          const ob = obstacles[i];
+          const hitVertex = ob.pointerOnVertex(
+            pointerPos, armBase);
+              if (hitVertex) {
+                  const vertexWorldCoords = {
+                    x: ob.vertices[hitVertex.vertexIndex].x + armCanvas.width / 2,
+                    y: ob.vertices[hitVertex.vertexIndex].y + armCanvas.height / 2
+                  };
+                  draggingObstacleVertexInfo = {
+                      obstacleIndex: i,
+                      vertexIndex: hitVertex.vertexIndex,
+                      offsetX: pointerPos.x - vertexWorldCoords.x,
+                      offsetY: pointerPos.y - vertexWorldCoords.y
+                  };
+                  draggingArm = undefined;
+                  return; 
+              }
+          }
+
         if (upperarm.isInsideJoint(pointerPos)) {
           draggingArm = upperarm;
         } else if (forearm.isInsideJoint(pointerPos)) {
@@ -156,6 +205,12 @@
       });
 
       armCanvas.addEventListener('pointerup', () => {
+        if (draggingObstacleVertexInfo) {
+          cSpaceNeedRedraw = true;
+          requestCSpaceUpdate();
+          draw();
+          draggingObstacleVertexInfo = undefined;
+        }
         draggingArm = undefined;
       });
 
@@ -165,6 +220,20 @@
           const dx = pointerPos.x - draggingArm.x;
           const dy = pointerPos.y - draggingArm.y;
           draggingArm.angle = Math.atan2(-dy, dx);
+          draw();
+          return
+        }
+        const pointerPos = getPointerPos(armCanvas, e);
+        if (draggingObstacleVertexInfo) {
+          const obs = obstacles[draggingObstacleVertexInfo.obstacleIndex];
+          const vIndex = draggingObstacleVertexInfo.vertexIndex;
+          
+          const newVertexWorldX = pointerPos.x - draggingObstacleVertexInfo.offsetX;
+          const newVertexWorldY = pointerPos.y - draggingObstacleVertexInfo.offsetY;
+
+          // Convert back to center-relative for storage
+          obs.vertices[vIndex].x = newVertexWorldX - armCanvas.width / 2;
+          obs.vertices[vIndex].y = newVertexWorldY - armCanvas.height / 2;
           draw();
         }
       });

@@ -1,6 +1,8 @@
 import type Point from "./interfaces/Point";
 import { segmentsIntersect } from "./utils";
 
+const OBSTACLE_HANDLE_RADIUS = 6;
+
 export default class Obstacle {
   vertices: Point[];
 
@@ -19,13 +21,41 @@ export default class Obstacle {
     ctx.fill();
   }
 
-  pointInside(pointInWorld: Point, obstacleOriginX: number, obstacleOriginY: number): boolean {
+  drawHandles(originX: number, originY: number, ctx: CanvasRenderingContext2D) {
+    ctx.strokeStyle = 'rgba(0,0,255,0.5)';
+    ctx.fillStyle = 'rgba(100,100,255,0.7)';
+    ctx.lineWidth = 1;
+    this.vertices.forEach((v) => {
+      const worldX = v.x + originX;
+      const worldY = v.y + originY;
+      ctx.beginPath();
+      ctx.arc(worldX, worldY, OBSTACLE_HANDLE_RADIUS, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    });
+  }
+
+pointerOnVertex(pointerPos: Point, origin: Point): { vertexIndex: number } | null {
+    for (let i = 0; i < this.vertices.length; i++) {
+      const v = this.vertices[i];
+      const vertexWorldX = v.x + origin.x;
+      const vertexWorldY = v.y + origin.y;
+      const dx = pointerPos.x - vertexWorldX;
+      const dy = pointerPos.y - vertexWorldY;
+      if (dx * dx + dy * dy <= OBSTACLE_HANDLE_RADIUS * OBSTACLE_HANDLE_RADIUS) {
+        return { vertexIndex: i };
+      }
+    }
+    return null;
+  }
+
+  pointInside(pointInWorld: Point, obstacleOrigin: Point): boolean {
     let isInside = false;
     for (let i = 0, j = this.vertices.length - 1; i < this.vertices.length; j = i++) {
-      const xi = this.vertices[i].x + obstacleOriginX;
-      const yi = this.vertices[i].y + obstacleOriginY;
-      const xj = this.vertices[j].x + obstacleOriginX;
-      const yj = this.vertices[j].y + obstacleOriginY;
+      const xi = this.vertices[i].x + obstacleOrigin.x;
+      const yi = this.vertices[i].y + obstacleOrigin.y;
+      const xj = this.vertices[j].x + obstacleOrigin.x;
+      const yj = this.vertices[j].y + obstacleOrigin.y;
 
       const intersect = (
         (yi > pointInWorld.y) !== (yj > pointInWorld.y)) &&
@@ -37,13 +67,12 @@ export default class Obstacle {
   }
 
   collidesWithSegment(
-    segP1: Point, segP2: Point,
-    obstacleOriginX: number, obstacleOriginY: number 
+    segP1: Point, segP2: Point, obstacleOrigin: Point 
   ): boolean {
     const worldVertices = this.vertices.map(v => (
       {
-        x: v.x + obstacleOriginX,
-        y: v.y + obstacleOriginY
+        x: v.x + obstacleOrigin.x,
+        y: v.y + obstacleOrigin.y
       }));
     if (worldVertices.length < 2) return false;
 
@@ -56,7 +85,7 @@ export default class Obstacle {
     }
     
     const midPoint = { x: (segP1.x + segP2.x) / 2, y: (segP1.y + segP2.y) / 2 };
-    if (this.vertices.length >=3 && this.pointInside(midPoint, obstacleOriginX, obstacleOriginY)) {
+    if (this.vertices.length >=3 && this.pointInside(midPoint, obstacleOrigin)) {
       return true;
     }
     return false;

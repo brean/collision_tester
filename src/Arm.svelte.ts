@@ -38,6 +38,7 @@ class Arm {
     this.x = parentX;
     this.y = parentY;
     const endPos = this.getEndPosition();
+    ctx.strokeStyle = 'black';
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(this.x, this.y);
