@@ -1,8 +1,8 @@
 <script lang="ts">
   import { Arm } from "../Arm.svelte";
   import type Point from "../interfaces/Point";
-  import Obstacle from "../Obstacle";
-  import { getPointerPos } from "../utils";
+  import { Obstacle, previewObstacle } from "../Obstacle";
+  import { getPointerPos, getPointerPosRelativeToCenter } from "../utils";
 
   let armCanvas: HTMLCanvasElement;
   let armCtx: CanvasRenderingContext2D | null;
@@ -16,7 +16,8 @@
   let cSpaceNeedRedraw = true;
   let pointerListener = false;
 
-  let addObstacleMode = false;
+  let addObstacleMode = $state(false);
+  let currentNewObstaclePoints = $state<Point[]>([]);
 
   let draggingObstacleVertexInfo = $state<{ 
     obstacleIndex: number, 
@@ -36,7 +37,7 @@
   ]
 
   function drawCSpace() {
-    if (!upperarm || !forearm || !cSpaceCtx) {
+    if (!cSpaceCtx) {
       return;
     }
     cSpaceCtx.clearRect(0, 0, cSpaceCanvas.width, cSpaceCanvas.height);
@@ -63,15 +64,22 @@
     armCtx.clearRect(0, 0, armCanvas.width, armCanvas.height);
 
     // obstacles
-    const canvasCenterX = armCanvas.width / 2;
-    const canvasCenterY = armCanvas.height / 2;
+    const armBase: Point = {
+      x: armCanvas.width / 2,
+      y: armCanvas.height / 2
+    };
     obstacles.forEach((ob: Obstacle) => {
       if (!armCtx) return;
-      ob.draw(armCanvas.width / 2, armCanvas.height / 2, armCtx);
+      ob.draw(armBase, armCtx);
       if (!addObstacleMode) {
-        ob.drawHandles(canvasCenterX, canvasCenterY, armCtx);
+        ob.drawHandles(armBase, armCtx);
       }
     })
+
+    // obstacle preview
+    if (addObstacleMode) {
+      previewObstacle(currentNewObstaclePoints, armBase, armCtx)
+    }
 
     // robot itself
     forearm.draw(armCanvas.width / 2, armCanvas.height / 2, armCtx)
@@ -79,9 +87,7 @@
 
   function draw() {
     drawRobotSpace()
-
     drawCSpace();
-
   }
 
   function requestCSpaceUpdate() {
@@ -154,6 +160,27 @@
     cSpaceNeedRedraw = cSpaceCalculating = false;
   }
 
+  function toggleAddObstacleMode() {
+    addObstacleMode = !addObstacleMode;
+    if (addObstacleMode) {
+        currentNewObstaclePoints = []; // Clear previous points if re-entering
+        draggingArm = undefined;
+        draggingObstacleVertexInfo = undefined;
+    }
+  }
+
+  function finishCurrentObstacle() {
+      const newObstacle = new Obstacle([...currentNewObstaclePoints]);
+      obstacles.push(newObstacle); // This will trigger C-Space update via $effect
+      currentNewObstaclePoints = [];
+      addObstacleMode = false;
+      cSpaceNeedRedraw = true;
+      requestCSpaceUpdate();
+      draw();
+      draggingObstacleVertexInfo = undefined;
+    
+  }
+
   function init() {
     if (!cSpaceCanvas || ! armCanvas) {
       return
@@ -214,6 +241,14 @@
         draggingArm = undefined;
       });
 
+      armCanvas.addEventListener('click', (e: Event) => {
+        if (addObstacleMode && armCanvas) {
+          const coords = getPointerPosRelativeToCenter(armCanvas, e);
+          currentNewObstaclePoints.push(coords);
+          draw();
+        }
+      });
+
       armCanvas.addEventListener('pointermove', (e) => {
         if (draggingArm) {
           const pointerPos = getPointerPos(armCanvas, e);
@@ -259,10 +294,22 @@
   {/if}
 </div>
 <br />
-upper arm angle: <input type="range" min={-Math.PI} max={Math.PI} step={0.01} bind:value={upperarm.angle} />
-<button onclick={() => {upperarm.angle = 0}}>0</button> {Math.round(upperarm.angle * 1800 / Math.PI) / 10}<br />
-forearm angle: <input type="range" min={-Math.PI} max={Math.PI} step={0.01} bind:value={forearm.angle} />
-<button onclick={() => {forearm.angle = 0}}>0</button> {Math.round(forearm.angle * 1800 / Math.PI) / 10}<br />
+upper arm angle: 
+  <input type="range" min={-Math.PI} max={Math.PI} step={0.01} bind:value={upperarm.angle} />
+  <button onclick={() => {upperarm.angle = 0}}>0</button> {Math.round(upperarm.angle * 1800 / Math.PI) / 10}<br />
+forearm angle:
+  <input type="range" min={-Math.PI} max={Math.PI} step={0.01} bind:value={forearm.angle} />
+  <button onclick={() => {forearm.angle = 0}}>0</button> {Math.round(forearm.angle * 1800 / Math.PI) / 10}<br />
+
+<button onclick={toggleAddObstacleMode}>
+  {#if addObstacleMode} Cancel {:else} Add New Obstacle {/if}
+</button>
+{#if addObstacleMode}
+  <button onclick={finishCurrentObstacle} disabled={currentNewObstaclePoints.length < 3}>
+    Finish Obstacle ({currentNewObstaclePoints.length} points)
+  </button>
+  <p>Click on Robot Space to add points to the new obstacle.</p>
+{/if}
 
 <style>
   canvas {

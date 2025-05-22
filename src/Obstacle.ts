@@ -3,31 +3,31 @@ import { segmentsIntersect } from "./utils";
 
 const OBSTACLE_HANDLE_RADIUS = 6;
 
-export default class Obstacle {
+class Obstacle {
   vertices: Point[];
 
   constructor(vertices: Point[]) {
     this.vertices = vertices;
   }
 
-  draw(centerX: number, centerY: number, ctx: CanvasRenderingContext2D) {
+  draw(center: Point, ctx: CanvasRenderingContext2D) {
     ctx.fillStyle = 'gray';
     ctx.beginPath();
-    ctx.moveTo(this.vertices[0].x + centerX, this.vertices[0].y + centerY);
+    ctx.moveTo(this.vertices[0].x + center.x, this.vertices[0].y + center.x);
     for (let i = 1; i < this.vertices.length; i++) {
-      ctx.lineTo(this.vertices[i].x + centerX, this.vertices[i].y + centerY);
+      ctx.lineTo(this.vertices[i].x + center.x, this.vertices[i].y + center.y);
     }
     ctx.closePath();
     ctx.fill();
   }
 
-  drawHandles(originX: number, originY: number, ctx: CanvasRenderingContext2D) {
+  drawHandles(origin: Point, ctx: CanvasRenderingContext2D) {
     ctx.strokeStyle = 'rgba(0,0,255,0.5)';
     ctx.fillStyle = 'rgba(100,100,255,0.7)';
     ctx.lineWidth = 1;
     this.vertices.forEach((v) => {
-      const worldX = v.x + originX;
-      const worldY = v.y + originY;
+      const worldX = v.x + origin.x;
+      const worldY = v.y + origin.y;
       ctx.beginPath();
       ctx.arc(worldX, worldY, OBSTACLE_HANDLE_RADIUS, 0, Math.PI * 2);
       ctx.fill();
@@ -91,3 +91,46 @@ pointerOnVertex(pointerPos: Point, origin: Point): { vertexIndex: number } | nul
     return false;
   }
 }
+
+function previewObstacle(points: Point[], center: Point, ctx: CanvasRenderingContext2D) {
+  if (points.length <= 0) {
+    return
+  }
+  ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+  ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  const firstPointWorld = {
+    x: points[0].x + center.x,
+    y: points[0].y + center.y,
+  };
+  ctx.moveTo(firstPointWorld.x, firstPointWorld.y);
+  ctx.arc(
+    firstPointWorld.x, firstPointWorld.y,
+    OBSTACLE_HANDLE_RADIUS, 0, Math.PI * 2);
+    
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i];
+    const worldX = p.x + center.x;
+    const worldY = p.y + center.y;
+    ctx.lineTo(worldX, worldY);
+    ctx.moveTo(worldX + OBSTACLE_HANDLE_RADIUS, worldY);
+    ctx.arc(worldX, worldY, OBSTACLE_HANDLE_RADIUS, 0, Math.PI * 2);
+    ctx.moveTo(worldX, worldY);
+  }
+  if (points.length > 2) { // close polygon preview
+    ctx.lineTo(firstPointWorld.x, firstPointWorld.y);
+  }
+  ctx.stroke();
+  ctx.beginPath();
+    points.forEach(p => {
+      const worldX = p.x + center.x;
+      const worldY = p.y + center.y;
+      ctx.moveTo(worldX + OBSTACLE_HANDLE_RADIUS, worldY);
+      ctx.arc(worldX, worldY, OBSTACLE_HANDLE_RADIUS, 0, Math.PI * 2);
+  });
+  ctx.fill();
+}
+
+
+export { Obstacle, previewObstacle }

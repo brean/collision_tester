@@ -1,11 +1,18 @@
 import type Point from "./interfaces/Point";
 
-function getPointerPos(canvas: HTMLCanvasElement, evt: PointerEvent) {
+function getPointerPos(canvas: HTMLCanvasElement, evt: PointerEvent): Point {
   const rect = canvas.getBoundingClientRect();
   return {
     x: evt.clientX - rect.left,
     y: evt.clientY - rect.top
   };
+}
+
+function getPointerPosRelativeToCenter(canvas: HTMLCanvasElement, evt: PointerEvent) {
+    const point = getPointerPos(canvas, evt);
+    point.x -= canvas.width / 2,
+    point.y -= canvas.height / 2
+    return point;
 }
 
 function onSegment(p: Point, q: Point, r: Point): boolean {
@@ -42,4 +49,4 @@ function segmentsIntersect(
   return false;
 }
 
-export {segmentsIntersect, getPointerPos}
+export {segmentsIntersect, getPointerPos, getPointerPosRelativeToCenter}
